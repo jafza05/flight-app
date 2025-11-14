@@ -59,3 +59,4 @@ build/
 # Temporary files
 *.tmp
 .cache/
+deployment-packages/
