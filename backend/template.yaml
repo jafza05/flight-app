@@ -1,0 +1,63 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: FlightTracker Backend - Aircraft tracking and proximity calculation
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 512
+    Runtime: python3.11
+    Environment:
+      Variables:
+        PYTHONPATH: /var/task:/var/task/shared
+    Layers:
+      - !Ref DependenciesLayer
+
+Resources:
+  # Lambda Layer for dependencies
+  DependenciesLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: flight-tracker-dependencies
+      Description: FlightRadarAPI and dependencies
+      ContentUri: ./layer
+      CompatibleRuntimes:
+        - python3.11
+    Metadata:
+      BuildMethod: python3.11
+
+  # Flight Search Function
+  FlightSearchFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: FlightTracker-FlightSearch
+      CodeUri: lambda/flight_search
+      Handler: handler.lambda_handler
+      Description: Search for nearby aircraft and calculate proximity
+      Events:
+        SearchAPI:
+          Type: Api
+          Properties:
+            Path: /flights/search
+            Method: post
+            RestApiId: !Ref FlightTrackerAPI
+
+  # API Gateway
+  FlightTrackerAPI:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: FlightTracker-API
+      StageName: prod
+      Cors:
+        AllowMethods: "'POST, GET, OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+        AllowOrigin: "'*'"
+
+Outputs:
+  FlightSearchAPI:
+    Description: "API Gateway endpoint URL for flight search"
+    Value: !Sub "https://${FlightTrackerAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/flights/search"
+
+  FlightSearchFunctionArn:
+    Description: "Flight Search Lambda Function ARN"
+    Value: !GetAtt FlightSearchFunction.Arn

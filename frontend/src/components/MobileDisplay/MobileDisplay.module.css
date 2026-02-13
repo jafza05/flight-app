@@ -1,0 +1,653 @@
+/* MobileDisplay - Optimized for mobile devices (portrait mode) */
+
+.mobileContainer {
+  width: 100vw;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-background);
+  overflow-x: hidden;
+  overflow-y: auto;
+  position: relative;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ========== Hero Section ========== */
+.heroSection {
+  width: 100%;
+  padding: 12px 8px 8px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+/* Top row: Origin — Route Arrow — Destination */
+.routeRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.airportBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.airportLabel {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--color-text-secondary);
+  opacity: 0.6;
+  text-transform: uppercase;
+}
+
+.airportCity {
+  font-size: 11px;
+  font-weight: 300;
+  color: var(--color-text);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  opacity: 0.7;
+}
+
+.routeArrow {
+  font-size: 18px;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+  padding: 0 2px;
+  opacity: 0.6;
+}
+
+/* ========== Instruments Row: Altitude | Map | Speed ========== */
+.instrumentsRow {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  height: 240px;
+  margin-bottom: 8px;
+}
+
+.gaugeColumn {
+  flex: 0 0 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.mapColumn {
+  flex: 1;
+  min-width: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  position: relative;
+}
+
+/* Gauge (Altitude / Speed) */
+.meterContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(10, 186, 181, 0.5);
+  border-radius: 8px;
+  padding: 8px 4px;
+  position: relative;
+}
+
+.speedGauge .meterContainer {
+  border-color: rgba(247, 107, 72, 0.5);
+}
+
+.verticalTape {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 6px 0;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(10, 186, 181, 0.3);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.speedGauge .verticalTape {
+  border-color: rgba(247, 107, 72, 0.3);
+}
+
+.tickRow {
+  position: relative;
+  width: 100%;
+  height: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.majorTick {
+  width: 8px;
+  height: 2px;
+  background-color: rgba(10, 186, 181, 0.8);
+}
+
+.speedGauge .majorTick {
+  background-color: rgba(247, 107, 72, 0.8);
+}
+
+.minorTick {
+  width: 5px;
+  height: 1px;
+  background-color: rgba(10, 186, 181, 0.4);
+}
+
+.speedGauge .minorTick {
+  background-color: rgba(247, 107, 72, 0.4);
+}
+
+.tickLabel {
+  position: absolute;
+  right: 8px;
+  font-size: 0.65rem;
+  color: rgba(10, 186, 181, 0.8);
+  font-weight: bold;
+}
+
+.speedGauge .tickLabel {
+  color: rgba(247, 107, 72, 0.8);
+}
+
+.currentValue {
+  position: absolute;
+  width: 100%;
+  height: 28px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid #0abab5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-50%);
+  box-shadow: 0 0 10px rgba(10, 186, 181, 0.5);
+  z-index: 45;
+  font-size: 16px;
+  font-weight: bold;
+  color: #0abab5;
+}
+
+.speedGauge .currentValue {
+  border-color: #f76b48;
+  box-shadow: 0 0 10px rgba(247, 107, 72, 0.5);
+  color: #f76b48;
+}
+
+.unitLabel {
+  font-size: 12px;
+  font-weight: bold;
+  color: #0abab5;
+  text-align: center;
+  padding: 2px 0;
+  background: rgba(0, 0, 0, 0.4);
+  width: 100%;
+  border-radius: 0 0 4px 4px;
+}
+
+.speedGauge .unitLabel {
+  color: #f76b48;
+}
+
+/* ========== Aircraft Info Row ========== */
+.infoRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  gap: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 4px;
+}
+
+.infoBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.infoLabel {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--color-text-secondary);
+  opacity: 0.7;
+  text-transform: uppercase;
+}
+
+.infoValue {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  text-align: center;
+}
+
+.airlineLogoBlock {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex: 1.5;
+  min-width: 0;
+}
+
+.airlineLogoBlock img {
+  max-width: 100%;
+  max-height: 32px;
+  object-fit: contain;
+}
+
+/* ========== Navigation Dots / Swipe Hint ========== */
+.navRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.navButton {
+  width: 36px;
+  height: 36px;
+  background: rgba(100, 100, 100, 0.2);
+  border: 1px solid rgba(150, 150, 150, 0.3);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.navButton:active {
+  background: rgba(150, 150, 150, 0.4);
+  transform: scale(0.92);
+}
+
+.navCounter {
+  font-family: var(--font-mono, 'B612 Mono', monospace);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.05em;
+}
+
+/* ========== Surrounding Flights Section ========== */
+.surroundingSection {
+  width: 100%;
+  padding: 8px 8px 80px;
+  box-sizing: border-box;
+}
+
+.surroundingTitle {
+  font-family: var(--font-display);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0 0 8px 4px;
+}
+
+.flightCards {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+}
+
+.flightCards::-webkit-scrollbar {
+  display: none;
+}
+
+/* Map Overview Card */
+.mapCard {
+  flex: 0 0 200px;
+  height: 130px;
+  background: #000000;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  scroll-snap-align: start;
+}
+
+/* Compact Flight Card */
+.flightCard {
+  flex: 0 0 200px;
+  height: 130px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  scroll-snap-align: start;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.flightCard:active {
+  transform: scale(0.97);
+  border-color: var(--color-primary);
+}
+
+/* Card Header */
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+}
+
+.cardAirline {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.cardAirlineLogo {
+  height: 20px;
+  width: auto;
+  max-width: 60px;
+  object-fit: contain;
+}
+
+.cardFlightNumber {
+  font-family: var(--font-mono, 'B612 Mono', monospace);
+  font-size: 0.9rem;
+  font-weight: bold;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
+.cardDistance {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Card Route */
+.cardRoute {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+}
+
+.cardAirport {
+  font-family: var(--font-mono, 'B612 Mono', monospace);
+  font-weight: bold;
+  color: var(--color-text);
+}
+
+.cardArrow {
+  color: var(--color-text-secondary);
+  font-size: 0.7rem;
+}
+
+/* Card Details */
+.cardDetails {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  font-size: 0.75rem;
+}
+
+.cardDetail {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.cardDetailLabel {
+  color: var(--color-text-secondary);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cardDetailValue {
+  color: var(--color-text);
+  font-weight: 500;
+  font-family: var(--font-mono, 'B612 Mono', monospace);
+}
+
+/* ========== Status Bar (fixed bottom) ========== */
+.statusBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  font-size: 0.65rem;
+  color: var(--color-text-secondary);
+  z-index: 50;
+}
+
+.statusItem {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.statusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4ade80;
+  animation: pulse 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* ========== Settings Button ========== */
+.settingsButton {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  width: 40px;
+  height: 40px;
+  background: rgba(100, 100, 100, 0.3);
+  border: 1px solid rgba(150, 150, 150, 0.4);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 100;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.settingsButton:active {
+  background: rgba(120, 120, 120, 0.5);
+  transform: scale(0.92);
+}
+
+.settingsIcon {
+  width: 20px;
+  height: 20px;
+  color: rgba(200, 200, 200, 0.8);
+}
+
+/* ========== Settings Panel (slide-in from right) ========== */
+.settingsPanel {
+  position: fixed;
+  top: 0;
+  right: -100%;
+  width: 100%;
+  max-width: 400px;
+  height: 100vh;
+  height: 100dvh;
+  background: var(--color-surface);
+  border-left: 2px solid var(--color-border);
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.5);
+  transition: right 0.3s ease;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.settingsPanel.open {
+  right: 0;
+}
+
+.settingsPanelHeader {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.settingsPanelTitle {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  margin: 0;
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.settingsCloseButton {
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.settingsCloseButton:active {
+  color: var(--color-text);
+}
+
+.settingsPanelContent {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ========== Settings Overlay Backdrop ========== */
+.settingsOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 199;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.settingsOverlay.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ========== Empty State ========== */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 60vh;
+  gap: 1.5rem;
+  text-align: center;
+  padding: 2rem 1.5rem;
+}
+
+.emptyStateTitle {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.emptyStateMessage {
+  font-size: 1rem;
+  color: var(--color-text-secondary);
+  max-width: 300px;
+}
+
+/* ========== Split Flap Scaling for Mobile ========== */
+.splitFlapMobile {
+  transform: scale(0.42);
+  transform-origin: center center;
+}

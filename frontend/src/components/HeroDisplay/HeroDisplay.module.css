@@ -1,0 +1,403 @@
+/* HeroDisplay - Grid-based flight display matching stream-v2 layout */
+
+.heroContainer {
+  background: var(--color-background);
+  color: var(--color-text);
+  font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  width: 100%;
+  max-width: 1920px;
+  margin: 0 auto;
+  position: relative;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.header {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  right: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 100;
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  letter-spacing: 1px;
+  margin: 0;
+}
+
+.priorityBadge {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  padding: 6px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+/* 96-column x 24-row grid container */
+.gridContainer {
+  display: grid;
+  grid-template-columns: repeat(96, 1fr);
+  grid-template-rows: repeat(24, 1fr);
+  gap: 0px;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 1;
+  max-height: calc(100vw / 4);
+  min-height: 400px;
+  position: relative;
+  margin-top: 40px;
+}
+
+/* Origin IATA Split-Flap */
+.originIata {
+  grid-column: 2 / span 24;
+  grid-row: 1 / span 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 35;
+  position: relative;
+}
+
+.splitFlapWrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.airportLabel {
+  position: absolute;
+  top: -20px; /* Moved up to avoid overlap with larger split-flap */
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--color-text-secondary);
+  opacity: 0.6;
+}
+
+/* Origin City Name */
+.originCity {
+  grid-column: 2 / span 24;
+  grid-row: 12 / span 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 32px;
+  font-weight: 300;
+  color: var(--color-text);
+  text-shadow: 0 0 10px rgba(221, 221, 221, 0.4);
+}
+
+/* Altitude Gauge */
+.altitudeValue {
+  grid-column: 27 / span 10;
+  grid-row: 1 / span 18;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.speedValue {
+  grid-column: 61 / span 10;
+  grid-row: 1 / span 18;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.meterContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(10, 186, 181, 0.5);
+  border-radius: 8px;
+  padding: 12px;
+  position: relative;
+}
+
+.speedValue .meterContainer {
+  border-color: rgba(247, 107, 72, 0.5);
+}
+
+.verticalTape {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 8px 0;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(10, 186, 181, 0.3);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.speedValue .verticalTape {
+  border-color: rgba(247, 107, 72, 0.3);
+}
+
+.tickRow {
+  position: relative;
+  width: 100%;
+  height: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.majorTick {
+  width: 12px;
+  height: 2px;
+  background-color: rgba(10, 186, 181, 0.8);
+}
+
+.speedValue .majorTick {
+  background-color: rgba(247, 107, 72, 0.8);
+}
+
+.minorTick {
+  width: 8px;
+  height: 1px;
+  background-color: rgba(10, 186, 181, 0.4);
+}
+
+.speedValue .minorTick {
+  background-color: rgba(247, 107, 72, 0.4);
+}
+
+.tickLabel {
+  position: absolute;
+  right: 12px;
+  font-size: 1.4rem;
+  color: rgba(10, 186, 181, 0.8);
+  font-weight: bold;
+}
+
+.speedValue .tickLabel {
+  color: rgba(247, 107, 72, 0.8);
+}
+
+.currentValue {
+  position: absolute;
+  width: 100%;
+  height: 40px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid #0abab5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-50%);
+  box-shadow: 0 0 15px rgba(10, 186, 181, 0.5);
+  z-index: 45;
+  font-size: 32px;
+  font-weight: bold;
+  color: #0abab5;
+}
+
+.speedValue .currentValue {
+  border-color: #f76b48;
+  box-shadow: 0 0 15px rgba(247, 107, 72, 0.5);
+  color: #f76b48;
+}
+
+.unitLabel {
+  font-size: 18px;
+  font-weight: bold;
+  color: #0abab5;
+  text-align: center;
+  padding: 2px 0;
+  background: rgba(0, 0, 0, 0.4);
+  width: 100%;
+}
+
+.speedValue .unitLabel {
+  color: #f76b48;
+}
+
+/* Map */
+.map {
+  grid-column: 40 / span 18;
+  grid-row: 1 / span 18;
+  z-index: 35;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+}
+
+.mapSvg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Destination IATA */
+.destinationIata {
+  grid-column: 72 / span 24;
+  grid-row: 1 / span 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 35;
+  position: relative;
+}
+
+/* Destination City Name */
+.destinationCity {
+  grid-column: 72 / span 24;
+  grid-row: 12 / span 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 32px;
+  font-weight: 300;
+  color: var(--color-text);
+  text-shadow: 0 0 10px rgba(221, 221, 221, 0.4);
+}
+
+/* Bottom Row Elements */
+.aircraftModel {
+  grid-column: 2 / span 24;
+  grid-row: 20 / span 6;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 20;
+}
+
+.airlineLogo {
+  grid-column: 40 / span 18;
+  grid-row: 20 / span 6;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 20;
+}
+
+.airlineLogo img {
+  max-width: 80%;
+  max-height: 80%;
+  object-fit: contain;
+}
+
+.heading {
+  grid-column: 72 / span 12;
+  grid-row: 20 / span 8;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 20;
+}
+
+.flight {
+  grid-column: 84 / span 12;
+  grid-row: 20 / span 8;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 20;
+}
+
+.infoLabel {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--color-text-secondary);
+  opacity: 0.7;
+  margin-bottom: 4px;
+}
+
+.infoValue {
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+  .gridContainer {
+    grid-template-columns: repeat(24, 1fr);
+    grid-template-rows: repeat(24, 1fr);
+    max-height: unset;
+    aspect-ratio: unset;
+    min-height: 600px;
+  }
+
+  .originIata {
+    grid-column: span 6;
+    grid-row: span 6;
+  }
+
+  .destinationIata {
+    grid-column: span 6;
+    grid-row: span 6;
+  }
+
+  .originCity,
+  .destinationCity {
+    grid-column: span 6;
+    grid-row: span 3;
+    font-size: 20px;
+  }
+
+  .map {
+    grid-column: span 12;
+    grid-row: span 10;
+  }
+
+  .altitudeValue,
+  .speedValue {
+    grid-column: span 6;
+    grid-row: span 10;
+  }
+
+  .aircraftModel {
+    grid-column: span 8;
+    grid-row: span 3;
+  }
+
+  .airlineLogo {
+    grid-column: span 8;
+    grid-row: span 3;
+  }
+
+  .heading {
+    grid-column: span 4;
+    grid-row: span 3;
+  }
+
+  .flight {
+    grid-column: span 4;
+    grid-row: span 3;
+  }
+}

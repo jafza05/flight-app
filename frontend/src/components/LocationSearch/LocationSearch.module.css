@@ -1,0 +1,393 @@
+/* LocationSearch Component Styles */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  width: 100%;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.label {
+  font-family: var(--font-display);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+/* Geolocation Mode */
+.geolocationMode {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.useLocationButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-primary);
+  color: var(--color-background);
+  border: none;
+  border-radius: var(--border-radius);
+  font-family: var(--font-display);
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.useLocationButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--color-primary-alpha);
+}
+
+.useLocationButton:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.useLocationButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.useLocationButton .icon {
+  font-size: var(--font-size-xl);
+}
+
+/* Address Search Mode */
+.addressMode {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  position: relative;
+}
+
+.inputContainer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--border-radius);
+  padding: var(--space-sm) var(--space-md);
+  transition: border-color 0.2s ease;
+}
+
+.inputContainer:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-alpha);
+}
+
+.searchIcon {
+  font-size: var(--font-size-lg);
+  margin-right: var(--space-sm);
+  color: var(--color-text-secondary);
+}
+
+.input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: var(--font-body);
+  font-size: var(--font-size-md);
+  color: var(--color-text-primary);
+  padding: var(--space-xs) 0;
+}
+
+.input::placeholder {
+  color: var(--color-text-secondary);
+  opacity: 0.7;
+}
+
+.clearInputButton {
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: var(--space-xs);
+  font-size: var(--font-size-md);
+  transition: color 0.2s ease;
+}
+
+.clearInputButton:hover {
+  color: var(--color-text-primary);
+}
+
+/* Selected Location Display */
+.selectedLocation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-surface);
+  border: 2px solid var(--color-primary);
+  border-radius: var(--border-radius);
+  box-shadow: 0 0 0 3px var(--color-primary-alpha);
+}
+
+.locationInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.locationName {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-family: var(--font-display);
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.checkmark {
+  font-size: var(--font-size-lg);
+}
+
+.coordinates {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-left: calc(var(--space-lg) + var(--space-sm));
+}
+
+.clearButton {
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: var(--space-sm);
+  font-size: var(--font-size-lg);
+  transition: all 0.2s ease;
+  border-radius: 50%;
+}
+
+.clearButton:hover:not(:disabled) {
+  color: var(--color-danger, #ff4444);
+  background: var(--color-surface-elevated);
+}
+
+.clearButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Suggestions Dropdown */
+.suggestionsDropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  margin-top: var(--space-xs);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.suggestionItem {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  cursor: pointer;
+  transition: background 0.2s ease;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.suggestionItem:last-child {
+  border-bottom: none;
+}
+
+.suggestionItem:hover {
+  background: var(--color-surface-elevated);
+}
+
+.suggestionIcon {
+  color: var(--color-primary);
+  font-size: var(--font-size-md);
+  margin-top: 2px;
+}
+
+.suggestionContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.suggestionMain {
+  font-family: var(--font-display);
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.suggestionSecondary {
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+/* Switch Mode Button */
+.switchModeButton {
+  padding: var(--space-sm) var(--space-md);
+  background: transparent;
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--border-radius);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  align-self: flex-start;
+}
+
+.switchModeButton:hover:not(:disabled) {
+  background: var(--color-primary-alpha);
+}
+
+.switchModeButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Loading States */
+.loadingMessage {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Error Message */
+.error {
+  padding: var(--space-md);
+  background: rgba(255, 68, 68, 0.1);
+  border: 1px solid rgba(255, 68, 68, 0.3);
+  border-radius: var(--border-radius);
+  color: #ff4444;
+  font-size: var(--font-size-sm);
+}
+
+/* Popular Airports */
+.popularAirports {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.popularAirportsLabel {
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.airportGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--space-sm);
+}
+
+.airportButton {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.airportButton:hover:not(:disabled) {
+  background: var(--color-primary-alpha);
+  border-color: var(--color-primary);
+  transform: translateY(-1px);
+}
+
+.airportButton:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.airportButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.airportCode {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.airportName {
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .container {
+    gap: var(--space-sm);
+  }
+
+  .useLocationButton {
+    font-size: var(--font-size-sm);
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .suggestionsDropdown {
+    max-height: 200px;
+  }
+
+  .airportGrid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
+}

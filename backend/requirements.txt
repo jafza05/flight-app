@@ -1,0 +1,13 @@
+# FlightRadar API
+FlightRadarAPI==1.3.28
+beautifulsoup4==4.12.3
+requests==2.31.0
+
+# AWS Lambda runtime
+boto3==1.34.34
+botocore==1.34.34
+
+# Utilities
+python-dateutil==2.8.2
+pytz==2024.1
+brotli==1.1.0
