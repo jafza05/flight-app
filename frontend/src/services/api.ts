@@ -4,6 +4,7 @@
 
 import type { AircraftWithDistance } from '../types/aircraft';
 import type { AppSettings } from '../types/settings';
+import type { ArrivalsSearchRequest, ArrivalsSearchResponse } from '../types/arrivals';
 
 const API_BASE_URL = 'https://44gwliogidpnklckwdyrhupydi0dbcub.lambda-url.us-east-1.on.aws';
 
@@ -64,6 +65,33 @@ export class FlightTrackerAPI {
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Unknown error' }));
       // Use the friendly message if available (for 404), otherwise use the error
+      const message = error.message || error.error || response.statusText;
+      throw new Error(message);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Search for airborne flights currently inbound to an airport
+   */
+  async searchArrivals(destinationIata: string, maxResults = 300): Promise<ArrivalsSearchResponse> {
+    const request: ArrivalsSearchRequest = {
+      mode: 'arrivals',
+      destination_airport_iata: destinationIata,
+      max_results: maxResults,
+    };
+
+    const response = await fetch(this.baseUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
       const message = error.message || error.error || response.statusText;
       throw new Error(message);
     }

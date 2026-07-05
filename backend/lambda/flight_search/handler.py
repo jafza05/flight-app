@@ -4,20 +4,48 @@ Lambda handler for flight search with FlightRadarAPI integration
 
 import json
 import math
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from shared.models import (
     Aircraft,
     AircraftWithDistance,
+    ArrivalFlight,
+    ArrivalsSearchResponse,
     FlightSearchResponse
 )
 from shared.proximity import (
     calculate_aircraft_proximity,
     feet_to_meters,
     knots_to_mph,
-    knots_to_kmh
+    knots_to_kmh,
+    haversine_distance,
+    miles_to_nautical_miles,
 )
+from shared.aircraft_classification import classify_aircraft
+
+# Airports supported by the /arrivals feature. `zones` are broad geographic
+# boxes used only to catch private/GA flights and any airline not in
+# AIRLINE_NAMES -- comprehensive coverage of known airlines comes from
+# per-airline queries instead (see search_arrivals_for_airport), since
+# FlightRadar24 hard-caps geographic queries at 1500 results and even a
+# single CONUS quadrant routinely hits that cap.
+AIRPORTS = {
+    'BOS': {
+        'name': 'Boston Logan International',
+        'latitude': 42.3656,
+        'longitude': -71.0096,
+        'zones': [
+            # North America + North Atlantic + Europe + a polar-route margin
+            {'tl_y': 75, 'br_y': 25, 'tl_x': -130, 'br_x': 15},
+            # Middle East / Turkey, for Gulf-carrier and Turkish Airlines
+            # flights still near departure (many hours out)
+            {'tl_y': 45, 'br_y': 12, 'tl_x': 15, 'br_x': 60},
+        ],
+    },
+}
 
 # ICAO to IATA airline code mapping (most common airlines)
 ICAO_TO_IATA = {
@@ -47,6 +75,31 @@ ICAO_TO_IATA = {
     'EZY': 'U2',  # easyJet
     'IBE': 'IB',  # Iberia
     'TAP': 'TP',  # TAP Air Portugal
+}
+
+# Airline ICAO code -> friendly name, for display on the /arrivals page.
+# Covers major US carriers, their regional-partner operators, and the
+# international/long-haul carriers that plausibly serve BOS.
+AIRLINE_NAMES = {
+    'UAL': 'United Airlines', 'AAL': 'American Airlines', 'DAL': 'Delta Air Lines',
+    'SWA': 'Southwest Airlines', 'JBU': 'JetBlue Airways', 'ASA': 'Alaska Airlines',
+    'FFT': 'Frontier Airlines', 'NKS': 'Spirit Airlines', 'ACA': 'Air Canada',
+    'BAW': 'British Airways', 'AFR': 'Air France', 'DLH': 'Lufthansa', 'KLM': 'KLM',
+    'UAE': 'Emirates', 'QTR': 'Qatar Airways', 'ETD': 'Etihad Airways',
+    'ETH': 'Ethiopian Airlines', 'SIA': 'Singapore Airlines', 'ANA': 'All Nippon Airways',
+    'JAL': 'Japan Airlines', 'CPA': 'Cathay Pacific', 'QFA': 'Qantas',
+    'VOZ': 'Virgin Australia', 'RYR': 'Ryanair', 'EZY': 'easyJet', 'IBE': 'Iberia',
+    'TAP': 'TAP Air Portugal', 'THY': 'Turkish Airlines', 'ELY': 'El Al',
+    'SWR': 'Swiss International Air Lines', 'SAS': 'SAS', 'EIN': 'Aer Lingus',
+    'ICE': 'Icelandair', 'CFG': 'Condor', 'ITY': 'ITA Airways', 'CHH': 'Hainan Airlines',
+    'CCA': 'Air China', 'CSN': 'China Southern', 'CES': 'China Eastern',
+    'NOZ': 'Norse Atlantic Airways', 'DTA': 'La Compagnie', 'TSC': 'Air Transat',
+    'WJA': 'WestJet', 'POE': 'Porter Airlines', 'ROU': 'Air Canada Rouge',
+    # US regional carriers operating under a mainline brand
+    'RPA': 'Republic Airways', 'ENY': 'Envoy Air', 'JZA': 'Air Canada Jazz',
+    'PDT': 'Piedmont Airlines', 'EDV': 'Endeavor Air', 'SKW': 'SkyWest Airlines',
+    'GJS': 'GoJet Airlines', 'AWI': 'Air Wisconsin', 'QXE': 'Horizon Air',
+    'JIA': 'PSA Airlines',
 }
 
 
@@ -85,6 +138,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         body = event.get('body', {})
         if isinstance(body, str):
             body = json.loads(body)
+
+        # Airport-arrivals search (used by the /arrivals plane-spotting page)
+        if body.get('mode') == 'arrivals':
+            return handle_arrivals_request(body)
 
         user_lat = float(body.get('user_latitude'))
         user_lon = float(body.get('user_longitude'))
@@ -394,3 +451,203 @@ def calculate_proximity_for_aircraft(
 
     # Return top N
     return aircraft_with_proximity[:max_aircraft]
+
+
+def handle_arrivals_request(body: Dict[str, Any]) -> Dict[str, Any]:
+    """Handle a `mode: 'arrivals'` request: airborne flights inbound to an airport"""
+
+    destination_iata = str(body.get('destination_airport_iata', '')).upper()
+    max_results = int(body.get('max_results', 300))
+
+    airport = AIRPORTS.get(destination_iata)
+    if not airport:
+        return {
+            'statusCode': 400,
+            'headers': get_cors_headers(),
+            'body': json.dumps({
+                'error': f"Unsupported airport '{destination_iata}'",
+                'supported_airports': list(AIRPORTS.keys()),
+            })
+        }
+
+    try:
+        arrivals = search_arrivals_for_airport(destination_iata, airport, max_results)
+    except Exception as e:
+        print(f"❌ Arrivals search error: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            'statusCode': 500,
+            'headers': get_cors_headers(),
+            'body': json.dumps({'error': str(e)})
+        }
+
+    response_data = ArrivalsSearchResponse(
+        airport_iata=destination_iata,
+        airport_name=airport['name'],
+        arrivals=arrivals,
+        arrivals_count=len(arrivals),
+        timestamp=datetime.utcnow().isoformat() + 'Z'
+    )
+
+    return {
+        'statusCode': 200,
+        'headers': get_cors_headers(),
+        'body': json.dumps(response_data.to_dict())
+    }
+
+
+def _fetch_zone(fr_api, zone: Dict[str, float], max_attempts: int = 3) -> List[Any]:
+    """
+    Fetch flights in a geographic zone. Retries on empty/error, since an
+    empty result for a broad zone usually means a transient API hiccup.
+    Note: FlightRadar24 hard-caps results at 1500 per query regardless of
+    zone size or requested limit, so zones must stay small enough (or be
+    supplemented by per-airline queries) to avoid silently dropping flights.
+    """
+    bounds = fr_api.get_bounds(zone)
+    for attempt in range(1, max_attempts + 1):
+        try:
+            flights = fr_api.get_flights(bounds=bounds)
+            if flights:
+                return flights
+        except Exception as e:
+            print(f"  ⚠️ zone get_flights failed: {e}")
+        time.sleep(1.5)
+    return []
+
+
+def _fetch_airline(fr_api, airline_code: str, max_attempts: int = 2) -> List[Any]:
+    """
+    Fetch all of one airline's currently-airborne flights worldwide. An
+    empty result is treated as valid (that airline just has none in the
+    air right now) -- only exceptions are retried.
+    """
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return fr_api.get_flights(airline=airline_code)
+        except Exception as e:
+            print(f"  ⚠️ airline {airline_code} get_flights failed: {e}")
+            time.sleep(1)
+    return []
+
+
+def search_arrivals_for_airport(
+    destination_iata: str,
+    airport: Dict[str, Any],
+    max_results: int,
+) -> List[ArrivalFlight]:
+    """
+    Find all airborne flights currently inbound to `destination_iata`,
+    anywhere in the world (including transatlantic traffic still hours
+    out over the ocean). FlightRadar24 only surfaces flights that have
+    already taken off, so this reflects "in the air right now", not a
+    full pre-departure schedule.
+
+    FlightRadar24 hard-caps each query at 1500 flights, and even a single
+    CONUS quadrant or European region routinely hits that cap -- so a
+    couple of huge geographic zones silently drop real flights (a plane
+    departing Madrid can get crowded out of the results just as easily as
+    one over open ocean). To get comprehensive coverage we query per
+    airline (each carrier's worldwide fleet is well under the cap) for
+    every airline we know about, PLUS a couple of broad geographic zones
+    to catch private/GA flights and any carrier not in our airline list.
+    All of this runs concurrently since it's pure network I/O.
+    """
+    from FlightRadar24 import FlightRadar24API
+
+    fr_api = FlightRadar24API()
+    flights_by_id: Dict[str, Any] = {}
+
+    with ThreadPoolExecutor(max_workers=12) as executor:
+        futures = [executor.submit(_fetch_airline, fr_api, code) for code in AIRLINE_NAMES.keys()]
+        futures += [executor.submit(_fetch_zone, fr_api, zone) for zone in airport['zones']]
+
+        for future in as_completed(futures):
+            for flight in future.result():
+                flights_by_id[getattr(flight, 'id', None) or id(flight)] = flight
+
+    flights = list(flights_by_id.values())
+    print(f"📡 Fetched {len(flights)} unique flights across {len(AIRLINE_NAMES)} airlines + {len(airport['zones'])} zones")
+
+    dest_lat = airport['latitude']
+    dest_lon = airport['longitude']
+
+    dynamodb = None
+    try:
+        import boto3
+        dynamodb = boto3.resource('dynamodb')
+    except Exception as e:
+        print(f"  ⚠️ Could not init DynamoDB: {e}")
+
+    arrivals: List[ArrivalFlight] = []
+
+    for flight in flights:
+        if getattr(flight, 'on_ground', False):
+            continue
+        if getattr(flight, 'destination_airport_iata', None) != destination_iata:
+            continue
+
+        altitude = int(getattr(flight, 'altitude', 0))
+        latitude = float(getattr(flight, 'latitude', 0))
+        longitude = float(getattr(flight, 'longitude', 0))
+        ground_speed = int(getattr(flight, 'ground_speed', 0))
+        aircraft_code = getattr(flight, 'aircraft_code', None)
+        airline_iata = getattr(flight, 'airline_iata', None) or None
+        airline_icao = getattr(flight, 'airline_icao', None) or None
+        flight_number = getattr(flight, 'number', None) or None
+        callsign = getattr(flight, 'callsign', None) or None
+        airline_name = AIRLINE_NAMES.get(airline_icao) if airline_icao else None
+
+        distance_nm = miles_to_nautical_miles(
+            haversine_distance(latitude, longitude, dest_lat, dest_lon)
+        )
+        eta_minutes = (distance_nm / ground_speed) * 60 if ground_speed > 0 else None
+
+        model_faa = None
+        model_code = None
+        if dynamodb is not None and aircraft_code:
+            try:
+                response = dynamodb.Table('aircraft').get_item(Key={'ICAO_Code': aircraft_code})
+                item = response.get('Item')
+                if item:
+                    model_faa = item.get('Model_FAA')
+                    model_code = item.get('Model_Code')
+            except Exception as db_error:
+                print(f"  ⚠️ DynamoDB lookup failed for {aircraft_code}: {db_error}")
+
+        classification = classify_aircraft(aircraft_code, airline_iata, flight_number)
+
+        arrivals.append(ArrivalFlight(
+            id=str(getattr(flight, 'id', '')),
+            callsign=callsign,
+            flight_number=flight_number,
+            registration=getattr(flight, 'registration', None),
+            aircraft_code=aircraft_code,
+            airline_iata=airline_iata,
+            airline_icao=airline_icao,
+            airline_name=airline_name,
+            model_faa=model_faa,
+            model_code=model_code,
+            latitude=latitude,
+            longitude=longitude,
+            altitude=altitude,
+            heading=int(getattr(flight, 'heading', 0)),
+            ground_speed=ground_speed,
+            vertical_speed=int(getattr(flight, 'vertical_speed', 0)),
+            origin_airport_iata=getattr(flight, 'origin_airport_iata', None) or None,
+            destination_airport_iata=destination_iata,
+            on_ground=False,
+            distance_to_airport_nm=round(distance_nm, 1),
+            eta_minutes=round(eta_minutes, 1) if eta_minutes is not None else None,
+            category=classification['category'],
+            is_widebody=classification['is_widebody'],
+            is_private_jet=classification['is_private_jet'],
+            is_rare=classification['is_rare'],
+            spotting_tags=classification['spotting_tags'],
+        ))
+
+    # Soonest arrivals first; unknown ETA (no speed data) sorts last
+    arrivals.sort(key=lambda a: (a.eta_minutes is None, a.eta_minutes))
+
+    return arrivals[:max_results]

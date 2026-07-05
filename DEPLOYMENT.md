@@ -76,15 +76,17 @@ You need to update the nameservers in your GoDaddy account:
 
 #### Development (.env.local)
 ```bash
-VITE_GOOGLE_MAPS_API_KEY=AIzaSyAiEyRgCS0dwkjWBW88HRBC3X7EzcVK6Xk
+VITE_GOOGLE_MAPS_API_KEY=<your-google-maps-api-key>
 VITE_API_URL=https://44gwliogidpnklckwdyrhupydi0dbcub.lambda-url.us-east-1.on.aws
 ```
 
 #### Production (.env.production)
 ```bash
-VITE_GOOGLE_MAPS_API_KEY=AIzaSyAiEyRgCS0dwkjWBW88HRBC3X7EzcVK6Xk
+VITE_GOOGLE_MAPS_API_KEY=<your-google-maps-api-key>
 VITE_API_URL=https://api.spookfish.ai
 ```
+
+Both `.env.local` and `.env.production` are gitignored — never commit real key values.
 
 ### Next Steps
 

@@ -127,6 +127,43 @@ class AirportInfo:
     altitude: Optional[int] = None  # Feet above sea level
 
 
+@dataclass
+class ArrivalFlight(Aircraft):
+    """
+    An airborne flight inbound to a specific airport, enriched for
+    plane-spotting: aircraft category and estimated time to arrival.
+    """
+    distance_to_airport_nm: Optional[float] = None   # Great-circle distance remaining
+    eta_minutes: Optional[float] = None              # Estimated minutes to arrival
+
+    airline_name: Optional[str] = None               # Friendly airline name
+
+    category: str = 'Mainline/Regional'
+    is_widebody: bool = False
+    is_private_jet: bool = False
+    is_rare: bool = False
+    spotting_tags: Optional[list] = None
+
+
+@dataclass
+class ArrivalsSearchResponse:
+    """Response from an airport-arrivals search"""
+    airport_iata: str
+    airport_name: str
+    arrivals: list  # List[ArrivalFlight]
+    arrivals_count: int
+    timestamp: str  # ISO format
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'airport_iata': self.airport_iata,
+            'airport_name': self.airport_name,
+            'arrivals': [a.to_dict() for a in self.arrivals],
+            'arrivals_count': self.arrivals_count,
+            'timestamp': self.timestamp,
+        }
+
+
 # Type aliases for clarity
 FlightId = str
 AircraftRegistration = str
