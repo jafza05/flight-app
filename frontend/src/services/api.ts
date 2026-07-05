@@ -4,7 +4,7 @@
 
 import type { AircraftWithDistance } from '../types/aircraft';
 import type { AppSettings } from '../types/settings';
-import type { ArrivalsSearchRequest, ArrivalsSearchResponse } from '../types/arrivals';
+import type { ArrivalFlight, ArrivalsSearchRequest, ArrivalsSearchResponse } from '../types/arrivals';
 
 const API_BASE_URL = 'https://44gwliogidpnklckwdyrhupydi0dbcub.lambda-url.us-east-1.on.aws';
 
@@ -97,6 +97,33 @@ export class FlightTrackerAPI {
     }
 
     return response.json();
+  }
+
+  /**
+   * Refresh one flight's live telemetry (position/altitude/speed/ETA)
+   * without re-running the full arrivals search.
+   */
+  async refreshFlight(destinationIata: string, registration: string): Promise<ArrivalFlight> {
+    const response = await fetch(this.baseUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        mode: 'refresh_flight',
+        destination_airport_iata: destinationIata,
+        registration,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+      const message = error.message || error.error || response.statusText;
+      throw new Error(message);
+    }
+
+    const data = await response.json();
+    return data.arrival;
   }
 
   /**

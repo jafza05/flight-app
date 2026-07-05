@@ -143,6 +143,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if body.get('mode') == 'arrivals':
             return handle_arrivals_request(body)
 
+        # Single-flight telemetry refresh (used by the per-card refresh button)
+        if body.get('mode') == 'refresh_flight':
+            return handle_refresh_flight_request(body)
+
         user_lat = float(body.get('user_latitude'))
         user_lon = float(body.get('user_longitude'))
         radius_mi = float(body.get('radius_mi', 5.0))
@@ -588,66 +592,155 @@ def search_arrivals_for_airport(
         if getattr(flight, 'destination_airport_iata', None) != destination_iata:
             continue
 
-        altitude = int(getattr(flight, 'altitude', 0))
-        latitude = float(getattr(flight, 'latitude', 0))
-        longitude = float(getattr(flight, 'longitude', 0))
-        ground_speed = int(getattr(flight, 'ground_speed', 0))
-        aircraft_code = getattr(flight, 'aircraft_code', None)
-        airline_iata = getattr(flight, 'airline_iata', None) or None
-        airline_icao = getattr(flight, 'airline_icao', None) or None
-        flight_number = getattr(flight, 'number', None) or None
-        callsign = getattr(flight, 'callsign', None) or None
-        airline_name = AIRLINE_NAMES.get(airline_icao) if airline_icao else None
-
-        distance_nm = miles_to_nautical_miles(
-            haversine_distance(latitude, longitude, dest_lat, dest_lon)
-        )
-        eta_minutes = (distance_nm / ground_speed) * 60 if ground_speed > 0 else None
-
-        model_faa = None
-        model_code = None
-        if dynamodb is not None and aircraft_code:
-            try:
-                response = dynamodb.Table('aircraft').get_item(Key={'ICAO_Code': aircraft_code})
-                item = response.get('Item')
-                if item:
-                    model_faa = item.get('Model_FAA')
-                    model_code = item.get('Model_Code')
-            except Exception as db_error:
-                print(f"  ⚠️ DynamoDB lookup failed for {aircraft_code}: {db_error}")
-
-        classification = classify_aircraft(aircraft_code, airline_iata, flight_number)
-
-        arrivals.append(ArrivalFlight(
-            id=str(getattr(flight, 'id', '')),
-            callsign=callsign,
-            flight_number=flight_number,
-            registration=getattr(flight, 'registration', None),
-            aircraft_code=aircraft_code,
-            airline_iata=airline_iata,
-            airline_icao=airline_icao,
-            airline_name=airline_name,
-            model_faa=model_faa,
-            model_code=model_code,
-            latitude=latitude,
-            longitude=longitude,
-            altitude=altitude,
-            heading=int(getattr(flight, 'heading', 0)),
-            ground_speed=ground_speed,
-            vertical_speed=int(getattr(flight, 'vertical_speed', 0)),
-            origin_airport_iata=getattr(flight, 'origin_airport_iata', None) or None,
-            destination_airport_iata=destination_iata,
-            on_ground=False,
-            distance_to_airport_nm=round(distance_nm, 1),
-            eta_minutes=round(eta_minutes, 1) if eta_minutes is not None else None,
-            category=classification['category'],
-            is_widebody=classification['is_widebody'],
-            is_private_jet=classification['is_private_jet'],
-            is_rare=classification['is_rare'],
-            spotting_tags=classification['spotting_tags'],
-        ))
+        arrivals.append(_build_arrival_flight(flight, destination_iata, dest_lat, dest_lon, dynamodb))
 
     # Soonest arrivals first; unknown ETA (no speed data) sorts last
     arrivals.sort(key=lambda a: (a.eta_minutes is None, a.eta_minutes))
 
     return arrivals[:max_results]
+
+
+def _build_arrival_flight(
+    flight: Any,
+    destination_iata: str,
+    dest_lat: float,
+    dest_lon: float,
+    dynamodb: Any,
+) -> ArrivalFlight:
+    """Convert one live FlightRadar24 flight into an enriched ArrivalFlight"""
+
+    altitude = int(getattr(flight, 'altitude', 0))
+    latitude = float(getattr(flight, 'latitude', 0))
+    longitude = float(getattr(flight, 'longitude', 0))
+    ground_speed = int(getattr(flight, 'ground_speed', 0))
+    aircraft_code = getattr(flight, 'aircraft_code', None)
+    airline_iata = getattr(flight, 'airline_iata', None) or None
+    airline_icao = getattr(flight, 'airline_icao', None) or None
+    flight_number = getattr(flight, 'number', None) or None
+    callsign = getattr(flight, 'callsign', None) or None
+    airline_name = AIRLINE_NAMES.get(airline_icao) if airline_icao else None
+
+    distance_nm = miles_to_nautical_miles(
+        haversine_distance(latitude, longitude, dest_lat, dest_lon)
+    )
+    eta_minutes = (distance_nm / ground_speed) * 60 if ground_speed > 0 else None
+
+    model_faa = None
+    model_code = None
+    if dynamodb is not None and aircraft_code:
+        try:
+            response = dynamodb.Table('aircraft').get_item(Key={'ICAO_Code': aircraft_code})
+            item = response.get('Item')
+            if item:
+                model_faa = item.get('Model_FAA')
+                model_code = item.get('Model_Code')
+        except Exception as db_error:
+            print(f"  ⚠️ DynamoDB lookup failed for {aircraft_code}: {db_error}")
+
+    classification = classify_aircraft(aircraft_code, airline_iata, flight_number)
+
+    return ArrivalFlight(
+        id=str(getattr(flight, 'id', '')),
+        callsign=callsign,
+        flight_number=flight_number,
+        registration=getattr(flight, 'registration', None),
+        aircraft_code=aircraft_code,
+        airline_iata=airline_iata,
+        airline_icao=airline_icao,
+        airline_name=airline_name,
+        model_faa=model_faa,
+        model_code=model_code,
+        latitude=latitude,
+        longitude=longitude,
+        altitude=altitude,
+        heading=int(getattr(flight, 'heading', 0)),
+        ground_speed=ground_speed,
+        vertical_speed=int(getattr(flight, 'vertical_speed', 0)),
+        origin_airport_iata=getattr(flight, 'origin_airport_iata', None) or None,
+        destination_airport_iata=destination_iata,
+        on_ground=False,
+        distance_to_airport_nm=round(distance_nm, 1),
+        eta_minutes=round(eta_minutes, 1) if eta_minutes is not None else None,
+        category=classification['category'],
+        is_widebody=classification['is_widebody'],
+        is_private_jet=classification['is_private_jet'],
+        is_rare=classification['is_rare'],
+        spotting_tags=classification['spotting_tags'],
+    )
+
+
+def handle_refresh_flight_request(body: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Refresh a single flight's live telemetry (position/altitude/speed/ETA)
+    without re-running the full multi-airline sweep. Looked up by
+    registration, since that reliably identifies one specific airframe.
+    """
+    destination_iata = str(body.get('destination_airport_iata', '')).upper()
+    registration = body.get('registration')
+
+    airport = AIRPORTS.get(destination_iata)
+    if not airport:
+        return {
+            'statusCode': 400,
+            'headers': get_cors_headers(),
+            'body': json.dumps({'error': f"Unsupported airport '{destination_iata}'"})
+        }
+    if not registration:
+        return {
+            'statusCode': 400,
+            'headers': get_cors_headers(),
+            'body': json.dumps({'error': 'registration is required to refresh a flight'})
+        }
+
+    from FlightRadar24 import FlightRadar24API
+    fr_api = FlightRadar24API()
+
+    flights = []
+    last_error = None
+    for attempt in range(1, 4):
+        try:
+            flights = fr_api.get_flights(registration=registration)
+            if flights:
+                break
+        except Exception as e:
+            last_error = e
+            print(f"  ⚠️ refresh attempt {attempt} failed for {registration}: {e}")
+        time.sleep(1)
+
+    if not flights and last_error:
+        return {
+            'statusCode': 500,
+            'headers': get_cors_headers(),
+            'body': json.dumps({'error': str(last_error)})
+        }
+
+    match = next(
+        (f for f in flights
+         if not getattr(f, 'on_ground', False)
+         and getattr(f, 'destination_airport_iata', None) == destination_iata),
+        None
+    )
+
+    if not match:
+        return {
+            'statusCode': 404,
+            'headers': get_cors_headers(),
+            'body': json.dumps({'error': 'Flight no longer airborne to this airport (landed, diverted, or lost signal)'})
+        }
+
+    dynamodb = None
+    try:
+        import boto3
+        dynamodb = boto3.resource('dynamodb')
+    except Exception as e:
+        print(f"  ⚠️ Could not init DynamoDB: {e}")
+
+    arrival = _build_arrival_flight(
+        match, destination_iata, airport['latitude'], airport['longitude'], dynamodb
+    )
+
+    return {
+        'statusCode': 200,
+        'headers': get_cors_headers(),
+        'body': json.dumps({'arrival': arrival.to_dict()})
+    }

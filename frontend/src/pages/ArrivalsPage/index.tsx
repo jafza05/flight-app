@@ -93,7 +93,15 @@ function cardClassName(flight: ArrivalFlight): string {
   return styles.card;
 }
 
-function ArrivalCard({ flight, now }: { flight: EnrichedFlight; now: number }) {
+interface ArrivalCardProps {
+  flight: EnrichedFlight;
+  now: number;
+  isRefreshing: boolean;
+  refreshFailed: boolean;
+  onRefresh: (flight: EnrichedFlight) => void;
+}
+
+function ArrivalCard({ flight, now, isRefreshing, refreshFailed, onRefresh }: ArrivalCardProps) {
   const remaining = flight.arrivalTimestamp != null ? flight.arrivalTimestamp - now : null;
 
   return (
@@ -105,6 +113,17 @@ function ArrivalCard({ flight, now }: { flight: EnrichedFlight; now: number }) {
           </span>
           {flight.airline_name && <span className={styles.airline}>{flight.airline_name}</span>}
         </div>
+        {flight.registration && (
+          <button
+            className={`${styles.refreshButton} ${isRefreshing ? styles.refreshSpinning : ''} ${refreshFailed ? styles.refreshFailed : ''}`}
+            onClick={() => onRefresh(flight)}
+            disabled={isRefreshing}
+            aria-label="Refresh this flight"
+            title="Refresh this flight"
+          >
+            ↻
+          </button>
+        )}
       </div>
 
       <div className={styles.aircraftName}>{aircraftDisplayName(flight)}</div>
@@ -142,6 +161,8 @@ function ArrivalsPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [notableOnly, setNotableOnly] = useState(true);
+  const [refreshingIds, setRefreshingIds] = useState<Set<string>>(new Set());
+  const [failedRefreshIds, setFailedRefreshIds] = useState<Set<string>>(new Set());
 
   const now = useNow();
 
@@ -162,6 +183,43 @@ function ArrivalsPageContent() {
       setArrivals([]);
     } finally {
       setIsLoading(false);
+    }
+  }, [airportCode]);
+
+  const handleRefreshFlight = useCallback(async (flight: EnrichedFlight) => {
+    if (!flight.registration) return;
+
+    setRefreshingIds((prev) => new Set(prev).add(flight.id));
+    setFailedRefreshIds((prev) => {
+      const next = new Set(prev);
+      next.delete(flight.id);
+      return next;
+    });
+
+    try {
+      const fresh = await flightAPI.refreshFlight(airportCode, flight.registration);
+      const fetchedAt = Date.now();
+      const enrichedFresh: EnrichedFlight = {
+        ...fresh,
+        arrivalTimestamp: fresh.eta_minutes != null ? fetchedAt + fresh.eta_minutes * 60000 : null,
+      };
+      setArrivals((prev) => prev.map((f) => (f.id === flight.id ? enrichedFresh : f)));
+    } catch (err) {
+      console.error('Failed to refresh flight', flight.flight_number, err);
+      setFailedRefreshIds((prev) => new Set(prev).add(flight.id));
+      setTimeout(() => {
+        setFailedRefreshIds((prev) => {
+          const next = new Set(prev);
+          next.delete(flight.id);
+          return next;
+        });
+      }, 3000);
+    } finally {
+      setRefreshingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(flight.id);
+        return next;
+      });
     }
   }, [airportCode]);
 
@@ -224,7 +282,14 @@ function ArrivalsPageContent() {
 
       <div className={styles.list}>
         {visibleArrivals.map((flight) => (
-          <ArrivalCard key={flight.id} flight={flight} now={now} />
+          <ArrivalCard
+            key={flight.id}
+            flight={flight}
+            now={now}
+            isRefreshing={refreshingIds.has(flight.id)}
+            refreshFailed={failedRefreshIds.has(flight.id)}
+            onRefresh={handleRefreshFlight}
+          />
         ))}
 
         {!isLoading && lastUpdate && visibleArrivals.length === 0 && !error && (
