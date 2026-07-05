@@ -57,7 +57,7 @@
   gap: 2px;
   font-family: var(--font-body);
   font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+  color: var(--color-secondary, #ffb627);
   flex: 1;
   min-width: 160px;
 }
@@ -162,13 +162,13 @@
   text-align: center;
   font-family: var(--font-body);
   font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+  color: var(--color-secondary, #ffb627);
 }
 
 .empty {
   text-align: center;
   padding: var(--space-xl);
-  color: var(--color-text-secondary);
+  color: var(--color-secondary, #ffb627);
   font-family: var(--font-body);
 }
 
@@ -220,7 +220,7 @@
   background: transparent;
   border: 1px solid var(--color-border, rgba(255, 255, 255, 0.2));
   border-radius: 50%;
-  color: var(--color-text-secondary);
+  color: var(--color-secondary, #ffb627);
   font-size: 15px;
   line-height: 1;
   cursor: pointer;
@@ -272,7 +272,7 @@
 .airline {
   font-family: var(--font-body);
   font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+  color: var(--color-secondary, #ffb627);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -323,7 +323,7 @@
 .etaClock {
   font-family: var(--font-body);
   font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+  color: var(--color-secondary, #ffb627);
   white-space: nowrap;
 }
 
@@ -333,8 +333,7 @@
   flex-wrap: wrap;
   font-family: var(--font-mono, var(--font-body));
   font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  opacity: 0.85;
+  color: var(--color-secondary, #ffb627);
 }
 
 @media (max-width: 600px) {
