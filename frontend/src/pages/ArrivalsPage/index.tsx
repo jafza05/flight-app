@@ -77,6 +77,10 @@ function formatAltitude(ft: number): string {
   return `${Math.round(ft / 100) / 10}k ft`;
 }
 
+function formatQueuePosition(aheadCount: number): string {
+  return aheadCount === 0 ? 'Next to land' : `${aheadCount} ahead`;
+}
+
 function aircraftDisplayName(flight: ArrivalFlight): string {
   return (
     flight.model_faa ||
@@ -96,12 +100,13 @@ function cardClassName(flight: ArrivalFlight): string {
 interface ArrivalCardProps {
   flight: EnrichedFlight;
   now: number;
+  aheadCount: number | null;
   isRefreshing: boolean;
   refreshFailed: boolean;
   onRefresh: (flight: EnrichedFlight) => void;
 }
 
-function ArrivalCard({ flight, now, isRefreshing, refreshFailed, onRefresh }: ArrivalCardProps) {
+function ArrivalCard({ flight, now, aheadCount, isRefreshing, refreshFailed, onRefresh }: ArrivalCardProps) {
   const remaining = flight.arrivalTimestamp != null ? flight.arrivalTimestamp - now : null;
 
   return (
@@ -149,6 +154,7 @@ function ArrivalCard({ flight, now, isRefreshing, refreshFailed, onRefresh }: Ar
         <span>{flight.origin_airport_iata || '???'} → {flight.destination_airport_iata}</span>
         <span>{formatAltitude(flight.altitude)}</span>
         <span>{flight.ground_speed}kt</span>
+        {aheadCount != null && <span>{formatQueuePosition(aheadCount)}</span>}
       </div>
     </div>
   );
@@ -223,6 +229,18 @@ function ArrivalsPageContent() {
     }
   }, [airportCode]);
 
+  // Landing order is based on ALL fetched flights, not just the notable
+  // ones -- an ordinary 737 landing first is still ahead of your A380 in
+  // the actual queue, regardless of the display filter.
+  const aheadCountById = useMemo(() => {
+    const withEta = arrivals
+      .filter((f) => f.arrivalTimestamp != null)
+      .sort((a, b) => a.arrivalTimestamp! - b.arrivalTimestamp!);
+    const map = new Map<string, number>();
+    withEta.forEach((f, index) => map.set(f.id, index));
+    return map;
+  }, [arrivals]);
+
   const visibleArrivals = useMemo(
     () => (notableOnly ? arrivals.filter(isNotable) : arrivals),
     [arrivals, notableOnly]
@@ -286,6 +304,7 @@ function ArrivalsPageContent() {
             key={flight.id}
             flight={flight}
             now={now}
+            aheadCount={aheadCountById.get(flight.id) ?? null}
             isRefreshing={refreshingIds.has(flight.id)}
             refreshFailed={failedRefreshIds.has(flight.id)}
             onRefresh={handleRefreshFlight}
