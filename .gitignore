@@ -56,3 +56,7 @@ env/
 .parcel-cache/
 .next/
 out/
+
+# Reference/scratch material, not part of the app
+/4mb-splitflap/
+/package-lock 2.json
