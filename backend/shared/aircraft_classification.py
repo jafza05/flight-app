@@ -10,6 +10,8 @@ from typing import Dict, Optional
 
 # Twin-aisle (widebody) ICAO type codes
 WIDEBODY_CODES = {
+    # Airbus A300/A310 (mostly freighters now, e.g. FedEx)
+    'A306', 'A30B', 'A310',
     # Airbus A330
     'A332', 'A333', 'A337', 'A338', 'A339',
     # Airbus A340

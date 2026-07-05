@@ -1,9 +1,11 @@
 /**
  * ArrivalsPage - Plane-spotting view of airborne flights inbound to an airport.
  * Highlights private jets, widebodies, and rare finds for boat-based spotting.
+ * Optimized for a quick glance on a boat console iPad: sticky clock, live
+ * countdowns, and a landscape grid layout alongside the phone list view.
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ThemeProvider } from '../../contexts/ThemeContext';
 import { ThemeApplier } from '../../components/ThemeApplier';
 import { flightAPI } from '../../services/api';
@@ -12,19 +14,63 @@ import type { ArrivalFlight } from '../../types/arrivals';
 import { AIRCRAFT_NAME_FALLBACK } from './aircraftNames';
 import styles from './ArrivalsPage.module.css';
 
-function formatRelativeEta(minutes?: number): string {
-  if (minutes == null) return '';
-  if (minutes < 1) return 'now';
-  const totalMinutes = Math.round(minutes);
-  const hours = Math.floor(totalMinutes / 60);
-  const mins = totalMinutes % 60;
-  return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+// Narrowbodies worth keeping even though they're not widebodies: long-haul
+// capable (A321LR/XLR) or historically transatlantic (757). Everything else
+// narrowbody/regional (737s, A319/320, E-jets, CRJs, turboprops) is filtered
+// out by default -- private jets, widebodies, and rare finds always show
+// regardless of this list.
+const NOTABLE_NARROWBODY_CODES = new Set(['A321', 'A21N', 'B752', 'B753']);
+
+interface EnrichedFlight extends ArrivalFlight {
+  arrivalTimestamp: number | null;
 }
 
-function formatClockEta(minutes?: number): string {
-  if (minutes == null) return '—';
-  const arrival = new Date(Date.now() + minutes * 60000);
-  return arrival.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+function isNotable(flight: ArrivalFlight): boolean {
+  return (
+    flight.is_widebody ||
+    flight.is_private_jet ||
+    flight.is_rare ||
+    (!!flight.aircraft_code && NOTABLE_NARROWBODY_CODES.has(flight.aircraft_code))
+  );
+}
+
+function useNow(intervalMs = 1000): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+  return now;
+}
+
+function formatClock(timestamp: number): string {
+  return new Date(timestamp).toLocaleTimeString([], {
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
+function formatEtaClock(timestamp: number): string {
+  return new Date(timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+function formatCountdown(msRemaining: number): string {
+  if (msRemaining <= 0) return 'Landing now';
+  const totalSeconds = Math.floor(msRemaining / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  // Second-level precision only when it's imminent -- otherwise it's just
+  // visual noise for a flight that's hours out.
+  if (totalSeconds < 15 * 60) {
+    return `${minutes}:${String(seconds).padStart(2, '0')}`;
+  }
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  return `${minutes}m`;
 }
 
 function formatAltitude(ft: number): string {
@@ -47,7 +93,9 @@ function cardClassName(flight: ArrivalFlight): string {
   return styles.card;
 }
 
-function ArrivalCard({ flight }: { flight: ArrivalFlight }) {
+function ArrivalCard({ flight, now }: { flight: EnrichedFlight; now: number }) {
+  const remaining = flight.arrivalTimestamp != null ? flight.arrivalTimestamp - now : null;
+
   return (
     <div className={cardClassName(flight)}>
       <div className={styles.cardTop}>
@@ -57,20 +105,24 @@ function ArrivalCard({ flight }: { flight: ArrivalFlight }) {
           </span>
           {flight.airline_name && <span className={styles.airline}>{flight.airline_name}</span>}
         </div>
-        <div className={styles.etaBlock}>
-          <span className={styles.eta}>{formatClockEta(flight.eta_minutes)}</span>
-          <span className={styles.etaRelative}>{formatRelativeEta(flight.eta_minutes)}</span>
-        </div>
       </div>
 
-      <div className={styles.middleRow}>
-        <span className={styles.aircraftName}>{aircraftDisplayName(flight)}</span>
-        {flight.spotting_tags.length > 0 && (
-          <span className={styles.tags}>
-            {flight.spotting_tags.map((tag) => (
-              <span key={tag} className={styles.tag}>{tag}</span>
-            ))}
-          </span>
+      <div className={styles.aircraftName}>{aircraftDisplayName(flight)}</div>
+
+      {flight.spotting_tags.length > 0 && (
+        <div className={styles.tags}>
+          {flight.spotting_tags.map((tag) => (
+            <span key={tag} className={styles.tag}>{tag}</span>
+          ))}
+        </div>
+      )}
+
+      <div className={styles.countdownBlock}>
+        <span className={styles.countdown}>
+          {remaining != null ? formatCountdown(remaining) : '—'}
+        </span>
+        {flight.arrivalTimestamp != null && (
+          <span className={styles.etaClock}>{formatEtaClock(flight.arrivalTimestamp)}</span>
         )}
       </div>
 
@@ -78,8 +130,6 @@ function ArrivalCard({ flight }: { flight: ArrivalFlight }) {
         <span>{flight.origin_airport_iata || '???'} → {flight.destination_airport_iata}</span>
         <span>{formatAltitude(flight.altitude)}</span>
         <span>{flight.ground_speed}kt</span>
-        <span>{flight.distance_to_airport_nm ?? '?'}nm</span>
-        {flight.registration && <span>{flight.registration}</span>}
       </div>
     </div>
   );
@@ -87,17 +137,25 @@ function ArrivalCard({ flight }: { flight: ArrivalFlight }) {
 
 function ArrivalsPageContent() {
   const [airportCode, setAirportCode] = useState(ARRIVAL_AIRPORTS[0].code);
-  const [arrivals, setArrivals] = useState<ArrivalFlight[]>([]);
+  const [arrivals, setArrivals] = useState<EnrichedFlight[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [notableOnly, setNotableOnly] = useState(true);
+
+  const now = useNow();
 
   const handleSearch = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
       const result = await flightAPI.searchArrivals(airportCode);
-      setArrivals(result.arrivals);
+      const fetchedAt = Date.now();
+      const enriched: EnrichedFlight[] = result.arrivals.map((flight) => ({
+        ...flight,
+        arrivalTimestamp: flight.eta_minutes != null ? fetchedAt + flight.eta_minutes * 60000 : null,
+      }));
+      setArrivals(enriched);
       setLastUpdate(new Date());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load arrivals');
@@ -107,52 +165,73 @@ function ArrivalsPageContent() {
     }
   }, [airportCode]);
 
+  const visibleArrivals = useMemo(
+    () => (notableOnly ? arrivals.filter(isNotable) : arrivals),
+    [arrivals, notableOnly]
+  );
+
+  const hiddenCount = arrivals.length - visibleArrivals.length;
+
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>✈️ Arrivals Spotter</h1>
-        <p className={styles.subtitle}>
-          Airborne flights heading in — private jets, widebodies, and rare finds highlighted
-        </p>
-      </header>
+      <div className={styles.stickyHeader}>
+        <div className={styles.headerTop}>
+          <h1 className={styles.title}>✈️ Arrivals Spotter</h1>
+          <div className={styles.clock}>{formatClock(now)}</div>
+        </div>
 
-      <div className={styles.controls}>
-        <label className={styles.label}>
-          Airport
-          <select
-            className={styles.select}
-            value={airportCode}
-            onChange={(e) => setAirportCode(e.target.value)}
-            disabled={isLoading}
-          >
-            {ARRIVAL_AIRPORTS.map((airport) => (
-              <option key={airport.code} value={airport.code}>
-                {airport.code} — {airport.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button className={styles.searchButton} onClick={handleSearch} disabled={isLoading}>
-          {isLoading ? 'Searching…' : 'Search Arrivals'}
-        </button>
+        <div className={styles.controls}>
+          <label className={styles.label}>
+            Airport
+            <select
+              className={styles.select}
+              value={airportCode}
+              onChange={(e) => setAirportCode(e.target.value)}
+              disabled={isLoading}
+            >
+              {ARRIVAL_AIRPORTS.map((airport) => (
+                <option key={airport.code} value={airport.code}>
+                  {airport.code} — {airport.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className={styles.toggle}>
+            <input
+              type="checkbox"
+              checked={notableOnly}
+              onChange={(e) => setNotableOnly(e.target.checked)}
+            />
+            <span className={styles.toggleTrack}><span className={styles.toggleThumb} /></span>
+            Notable only
+          </label>
+
+          <button className={styles.searchButton} onClick={handleSearch} disabled={isLoading}>
+            {isLoading ? 'Searching…' : 'Search Arrivals'}
+          </button>
+        </div>
+
+        {lastUpdate && !error && (
+          <div className={styles.meta}>
+            {visibleArrivals.length} shown
+            {hiddenCount > 0 ? ` · ${hiddenCount} hidden` : ''} · updated {lastUpdate.toLocaleTimeString()}
+          </div>
+        )}
       </div>
 
       {error && <div className={styles.error}>{error}</div>}
 
-      {lastUpdate && !error && (
-        <div className={styles.meta}>
-          {arrivals.length} inbound · updated {lastUpdate.toLocaleTimeString()}
-        </div>
-      )}
-
       <div className={styles.list}>
-        {arrivals.map((flight) => (
-          <ArrivalCard key={flight.id} flight={flight} />
+        {visibleArrivals.map((flight) => (
+          <ArrivalCard key={flight.id} flight={flight} now={now} />
         ))}
 
-        {!isLoading && lastUpdate && arrivals.length === 0 && !error && (
+        {!isLoading && lastUpdate && visibleArrivals.length === 0 && !error && (
           <div className={styles.empty}>
-            No airborne flights currently inbound to {airportCode}. Try again in a bit.
+            {arrivals.length === 0
+              ? `No airborne flights currently inbound to ${airportCode}. Try again in a bit.`
+              : 'Nothing notable right now — toggle "Notable only" off to see everything.'}
           </div>
         )}
       </div>
